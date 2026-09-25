@@ -1,0 +1,6 @@
+{
+  "name": "Iran Domain Intelligence & Tranco Analytics",
+  "description": "Comprehensive analytics and historical ranking trends for Iranian-hosted domains powered by Tranco research lists with smart caching, deep category intelligence, and domain comparison.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
