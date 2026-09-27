@@ -141,7 +141,9 @@ export default function App() {
     else void addCompare(item);
   };
   const updateDomain = (item: DomainItem) => {
-    setDetail(previous => previous?.domain === item.domain ? item : previous);
+    setDetail((previous) =>
+      previous?.domain === item.domain ? item : previous,
+    );
     setDomains((previous) =>
       previous.map((d) => (d.domain === item.domain ? item : d)),
     );
@@ -221,9 +223,9 @@ export default function App() {
           </div>
           <p className="text-[11px] text-slate-500">
             {isPersian ? "انتشار منبع:" : "Source release:"}{" "}
-            {manifest?.source.release || "—"} ·{" "}
+            <bdi dir="ltr">{manifest?.source.release || "—"}</bdi> ·{" "}
             {isPersian ? "مقایسه سالانه با:" : "Annual comparison with:"}{" "}
-            {manifest?.yearComparisonDate || "—"}
+            <bdi dir="ltr">{manifest?.yearComparisonDate || "—"}</bdi>
           </p>
         </section>
         <div className="flex gap-3 text-xs md:hidden">
@@ -523,7 +525,7 @@ export default function App() {
         onDomainAdded={(d) => {
           setLookupOpen(false);
           setDetail(d);
-          setRetry(n => n + 1);
+          setRetry((n) => n + 1);
         }}
         isPersian={isPersian}
       />

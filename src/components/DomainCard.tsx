@@ -49,9 +49,13 @@ export const DomainCard: React.FC<Props> = ({
         </strong>
         <p className="text-[10px] text-slate-500">
           {d.currentRank == null
-            ? d.rankStatus === "not_collected" ? (isPersian ? "رتبه هنوز دریافت نشده" : "Rank not yet collected") : isPersian
-              ? "خارج از یک میلیون دامنه برتر"
-              : "Outside top one million"
+            ? d.rankStatus === "not_collected"
+              ? isPersian
+                ? "رتبه هنوز دریافت نشده"
+                : "Rank not yet collected"
+              : isPersian
+                ? "خارج از یک میلیون دامنه برتر"
+                : "Outside top one million"
             : d.rankDate}
         </p>
       </div>

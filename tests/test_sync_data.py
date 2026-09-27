@@ -110,6 +110,17 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in download.call_args_list], [date(2026, 9, 25), date(2026, 9, 26)])
         self.assertEqual(export.call_args.args[3][:3], self.snapshots)
 
+    def test_retrying_an_old_gap_does_not_fabricate_coverage_for_new_domains(self):
+        snapshots = self.snapshots + [{'date': '2026-09-23', 'status': 'unavailable', 'ranks': {}}]
+        retried = {'date': '2026-09-23', 'status': 'available', 'listId': 'FIXED', 'ranks': {'a.ir': 60, 'new.ir': 80}}
+        with patch.object(sync, 'get_json', return_value=self.meta), \
+                patch.object(sync, 'fetch_snapshot', return_value=retried), patch.object(sync, 'export_data') as export:
+            sync.incremental_sync(self.previous, self.rows, snapshots, {}, {'a.ir', 'new.ir'},
+                                  {**self.source, 'release': 'new'}, {'a.ir', 'new.ir'})
+        self.assertEqual(export.call_args.args[4]['new.ir'], '2026-09-25')
+        old_gap = next(s for s in export.call_args.args[3] if s['date'] == '2026-09-23')
+        self.assertNotIn('new.ir', old_gap['ranks'])
+
     def test_failed_new_download_does_not_publish_partial_results(self):
         meta = {**self.meta, 'list_id': 'NEW', 'configuration': {'endDate': '2026-09-26'}}
         with patch.object(sync, 'get_json', return_value=meta), \

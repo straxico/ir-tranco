@@ -9,13 +9,28 @@ async function startServer() {
   const app = express();
   app.get("/api/tranco", tranco);
   // Serve published files directly so a data sync is visible even with Vite watching disabled.
-  app.use('/data', express.static(path.join(root, process.env.NODE_ENV === 'production' ? 'dist/data' : 'public/data'), {
-    setHeaders(res, file) {
-      res.setHeader('Cache-Control', file.includes(`${path.sep}snapshots${path.sep}`)
-        ? 'public, max-age=31536000, immutable' : 'no-cache');
-    },
-  }));
-  app.use('/data', (_req, res) => { res.status(404).json({error: 'Dataset file not found'}); });
+  app.use(
+    "/data",
+    express.static(
+      path.join(
+        root,
+        process.env.NODE_ENV === "production" ? "dist/data" : "public/data",
+      ),
+      {
+        setHeaders(res, file) {
+          res.setHeader(
+            "Cache-Control",
+            file.includes(`${path.sep}snapshots${path.sep}`)
+              ? "public, max-age=31536000, immutable"
+              : "no-cache",
+          );
+        },
+      },
+    ),
+  );
+  app.use("/data", (_req, res) => {
+    res.status(404).json({ error: "Dataset file not found" });
+  });
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "Unknown endpoint" });
   });
@@ -29,7 +44,10 @@ async function startServer() {
     });
   } else {
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: process.env.DISABLE_HMR === "true" ? false : undefined },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === "true" ? false : undefined,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

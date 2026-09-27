@@ -261,8 +261,16 @@ def load_published():
     for shard in range(64):
         histories = json.loads((folder / 'history' / f'{shard:02x}.json').read_text())
         for domain, points in histories.items():
+            if bucket(domain) != f'{shard:02x}':
+                raise ValueError('History is stored in the wrong shard')
+            previous_index = -1
             for index, rank in points:
+                if (type(index) is not int or not previous_index < index < len(snapshots)
+                        or type(rank) is not int or not 1 <= rank <= 1_000_000
+                        or snapshots[index]['status'] != 'available'):
+                    raise ValueError('Invalid or duplicate historical observation')
                 snapshots[index]['ranks'][domain] = rank
+                previous_index = index
     coverage = {r[0]: r[6] for r in rows if len(r) > 6 and r[6]}
     return manifest, rows, snapshots, coverage
 
@@ -352,9 +360,12 @@ def main():
         incremental_sync(previous, rows, snapshots, coverage, source_domains, source, domains)
         return
     domain_hash = hashlib.sha256('\n'.join(sorted(domains)).encode()).hexdigest()[:16]
+    latest = fetch_snapshot('latest', domains, domain_hash) if not args.end else None
+    effective_end = min(end, date.fromisoformat(latest['date'])) if latest else end
+    # Do not request a month-end later than the latest published list (e.g. early on the 31st).
     # Rebuild preserves previously collected daily dates as well as month-end samples.
-    dates = set(month_ends(start, end)) | {date.fromisoformat(s['date']) for s in snapshots
-                                          if start <= date.fromisoformat(s['date']) <= end}
+    dates = set(month_ends(start, effective_end)) | {date.fromisoformat(s['date']) for s in snapshots
+                                          if start <= date.fromisoformat(s['date']) <= effective_end}
     snapshots = []
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {pool.submit(fetch_snapshot, day, domains, domain_hash): day for day in dates}
@@ -362,8 +373,7 @@ def main():
             snapshot = future.result()
             snapshots.append(snapshot)
             print(f"{futures[future]}: {snapshot['status']}, {len(snapshot['ranks'])} matching domains", flush=True)
-    if not args.end:
-        latest = fetch_snapshot('latest', domains, domain_hash)
+    if latest:
         snapshots.append(latest)
         print(f"Latest {latest['date']}: {len(latest['ranks'])} matching domains", flush=True)
     if not any(s['status'] == 'available' for s in snapshots):

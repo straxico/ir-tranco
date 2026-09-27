@@ -108,7 +108,12 @@ function rowItem(row: Row, m: DataManifest): DomainItem {
     category,
     categoryFa: CATEGORIES.find((c) => c.id === category)?.nameFa || category,
     currentRank: rank,
-    rankStatus: coverageStart && coverageStart > m.latestDate ? "not_collected" : rank == null ? "unranked" : "ranked",
+    rankStatus:
+      coverageStart && coverageStart > m.latestDate
+        ? "not_collected"
+        : rank == null
+          ? "unranked"
+          : "ranked",
     rankDate: m.latestDate,
     rank1yChange: change,
     rank30dAvg: null,
@@ -284,11 +289,13 @@ export async function fetchDomainDetail(
     listId: s.listId,
     rank: ranks.get(i) ?? null,
     status:
-      !row || (row[6] && s.date < row[6]) ? "not_collected" : s.status === "unavailable"
-        ? "unavailable"
-        : ranks.has(i)
-          ? "ranked"
-          : "unranked",
+      !row || (row[6] && s.date < row[6])
+        ? "not_collected"
+        : s.status === "unavailable"
+          ? "unavailable"
+          : ranks.has(i)
+            ? "ranked"
+            : "unranked",
   }));
   const result = applyHistory(item, mergeHistory(archive, recent?.ranks || []));
   return recent

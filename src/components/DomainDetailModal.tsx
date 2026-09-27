@@ -180,14 +180,16 @@ export const DomainDetailModal: React.FC<Props> = ({
                       {p.rank != null
                         ? formatRank(p.rank)
                         : p.status === "not_collected"
-                          ? (isPersian ? "تاریخچه این دامنه دریافت نشده" : "History not collected for this domain")
-                          : p.status === "unavailable"
                           ? isPersian
-                            ? "فهرست این تاریخ موجود نیست"
-                            : "List unavailable"
-                          : isPersian
-                            ? "خارج از یک میلیون دامنه برتر"
-                            : "Outside top one million"}
+                            ? "تاریخچه این دامنه دریافت نشده"
+                            : "History not collected for this domain"
+                          : p.status === "unavailable"
+                            ? isPersian
+                              ? "فهرست این تاریخ موجود نیست"
+                              : "List unavailable"
+                            : isPersian
+                              ? "خارج از یک میلیون دامنه برتر"
+                              : "Outside top one million"}
                     </td>
                   </tr>
                 ))}

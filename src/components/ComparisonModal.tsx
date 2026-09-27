@@ -5,12 +5,32 @@ import { fetchDomains, fetchDomainDetail } from "../services/api";
 import { formatChange, formatRank } from "../utils/ranks";
 import { RankChart } from "./RankChart";
 const PRESETS = [
-  { fa: 'اجاره ویلا', en: 'Villa rentals', domains: ['jabama.com', 'jajiga.com', 'shab.ir', 'otaghak.com'] },
-  { fa: 'پرواز و هتل', en: 'Flights & hotels', domains: ['alibaba.ir', 'flytoday.ir', 'snapptrip.com', 'safarmarket.com'] },
-  { fa: 'طلا و سکه', en: 'Gold', domains: ['tgju.org', 'tala.ir', 'melligold.com', 'goldika.ir'] },
-  { fa: 'ارز دیجیتال', en: 'Crypto', domains: ['nobitex.ir', 'wallex.ir', 'bitpin.ir', 'abantether.com'] },
-  { fa: 'فروشگاه‌ها', en: 'Shopping', domains: ['digikala.com', 'torob.com', 'basalam.com', 'technolife.ir'] },
-  { fa: 'تاکسی آنلاین', en: 'Ride hailing', domains: ['snapp.ir', 'tapsi.ir'] },
+  {
+    fa: "اجاره ویلا",
+    en: "Villa rentals",
+    domains: ["jabama.com", "jajiga.com", "shab.ir", "otaghak.com"],
+  },
+  {
+    fa: "پرواز و هتل",
+    en: "Flights & hotels",
+    domains: ["alibaba.ir", "flytoday.ir", "snapptrip.com", "safarmarket.com"],
+  },
+  {
+    fa: "طلا و سکه",
+    en: "Gold",
+    domains: ["tgju.org", "tala.ir", "melligold.com", "goldika.ir"],
+  },
+  {
+    fa: "ارز دیجیتال",
+    en: "Crypto",
+    domains: ["nobitex.ir", "wallex.ir", "bitpin.ir", "abantether.com"],
+  },
+  {
+    fa: "فروشگاه‌ها",
+    en: "Shopping",
+    domains: ["digikala.com", "torob.com", "basalam.com", "technolife.ir"],
+  },
+  { fa: "تاکسی آنلاین", en: "Ride hailing", domains: ["snapp.ir", "tapsi.ir"] },
 ];
 interface Props {
   isOpen: boolean;
@@ -71,13 +91,18 @@ export const ComparisonModal: React.FC<Props> = ({
     }
   };
   const applyPreset = async (names: string[]) => {
-    setBusy(true); setError(false);
+    setBusy(true);
+    setError(false);
     try {
       const entries = await Promise.all(names.map(fetchDomainDetail));
-      if (entries.some(d => !d)) throw new Error('Preset domain unavailable');
+      if (entries.some((d) => !d)) throw new Error("Preset domain unavailable");
       comparedDomains.forEach(onRemoveDomain);
       for (const entry of entries) await onAddDomain(entry!);
-    } catch { setError(true); } finally { setBusy(false); }
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div
@@ -96,7 +121,18 @@ export const ComparisonModal: React.FC<Props> = ({
             <X />
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">{PRESETS.map(p => <button key={p.en} disabled={busy} onClick={() => applyPreset(p.domains)} className="text-xs rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-slate-300 disabled:opacity-40">{isPersian ? p.fa : p.en}</button>)}</div>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.en}
+              disabled={busy}
+              onClick={() => applyPreset(p.domains)}
+              className="text-xs rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-slate-300 disabled:opacity-40"
+            >
+              {isPersian ? p.fa : p.en}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-2">
           {comparedDomains.map((d) => (
             <button

@@ -3,11 +3,11 @@ name: Update Iranian domains and Tranco data
 on:
   schedule:
     # 02:17 UTC = 05:47 Tehran. Tranco normally publishes by 00:00 UTC.
-    - cron: '17 2 * * *'
+    - cron: "17 2 * * *"
   workflow_dispatch:
     inputs:
       rebuild:
-        description: 'Rebuild historical coverage (downloads old lists for newly added domains)'
+        description: "Rebuild historical coverage (downloads old lists for newly added domains)"
         required: false
         default: false
         type: boolean
@@ -35,7 +35,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Test the incremental importer
         run: python3 -m unittest discover -s tests -p 'test_*.py'
