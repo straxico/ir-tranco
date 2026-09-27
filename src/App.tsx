@@ -1,543 +1,547 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from "react";
+import { Search, LayoutGrid, List, RefreshCw } from "lucide-react";
 import {
-  Search,
-  LayoutGrid,
-  List,
-  ArrowUpDown,
-  ArrowRightLeft,
-  ShieldCheck,
-  TrendingUp,
-  Database,
-  ExternalLink,
-  Plus,
-  RefreshCw,
-} from 'lucide-react';
-import { DomainItem, CategoryItem, CacheStats, SortOption } from './types/domain';
-import { fetchCategories, fetchDomains, fetchCacheStats } from './services/api';
-import { Header } from './components/Header';
-import { CategoryNav } from './components/CategoryNav';
-import { DomainCard } from './components/DomainCard';
-import { DomainTable } from './components/DomainTable';
-import { DomainDetailModal } from './components/DomainDetailModal';
-import { ComparisonModal } from './components/ComparisonModal';
-import { AddDomainModal } from './components/AddDomainModal';
-import { CacheManagerModal } from './components/CacheManagerModal';
-import { MethodologyModal } from './components/MethodologyModal';
+  CategoryItem,
+  CacheStats,
+  DataManifest,
+  DomainItem,
+  SortOption,
+} from "./types/domain";
+import {
+  fetchCategories,
+  fetchDomains,
+  fetchCacheStats,
+  fetchManifest,
+  fetchDomainDetail,
+} from "./services/api";
+import { Header } from "./components/Header";
+import { DomainCard } from "./components/DomainCard";
+import { DomainTable } from "./components/DomainTable";
+import { DomainDetailModal } from "./components/DomainDetailModal";
+import { ComparisonModal } from "./components/ComparisonModal";
+import { AddDomainModal } from "./components/AddDomainModal";
+import { CacheManagerModal } from "./components/CacheManagerModal";
+import { MethodologyModal } from "./components/MethodologyModal";
 
+const PAGE_SIZE = 60;
 export default function App() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [domains, setDomains] = useState<DomainItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [manifest, setManifest] = useState<DataManifest | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
-
-  // User state
-  const [currentTab, setCurrentTab] = useState<'all' | 'categories' | 'compare' | 'methodology'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('rank_asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [detailError, setDetailError] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [tab, setTab] = useState<
+    "all" | "categories" | "compare" | "methodology"
+  >("all");
+  const [category, setCategory] = useState("all");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("rank_asc");
+  const [page, setPage] = useState(0);
+  const [view, setView] = useState<"grid" | "table">("grid");
   const [isPersian, setIsPersian] = useState(true);
-
-  // Modals & Panels
-  const [inspectingDomain, setInspectingDomain] = useState<DomainItem | null>(null);
-  const [comparedDomains, setComparedDomains] = useState<DomainItem[]>([]);
-  const [isCompareOpen, setIsCompareOpen] = useState(false);
-  const [isLookupOpen, setIsLookupOpen] = useState(false);
-  const [isCacheOpen, setIsCacheOpen] = useState(false);
-  const [isMethodologyOpen, setIsMethodologyOpen] = useState(false);
-
-  // Sync HTML dir and lang
+  const [detail, setDetail] = useState<DomainItem | null>(null);
+  const [compared, setCompared] = useState<DomainItem[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [cacheOpen, setCacheOpen] = useState(false);
+  const [methodOpen, setMethodOpen] = useState(false);
+  const detailRequest = useRef(0);
   useEffect(() => {
-    document.documentElement.dir = isPersian ? 'rtl' : 'ltr';
-    document.documentElement.lang = isPersian ? 'fa' : 'en';
+    document.documentElement.dir = isPersian ? "rtl" : "ltr";
+    document.documentElement.lang = isPersian ? "fa" : "en";
   }, [isPersian]);
-
-  // Initial Load
   useEffect(() => {
-    async function loadInitialData() {
-      try {
-        setLoading(true);
-        const [cats, doms, stats] = await Promise.all([
-          fetchCategories(),
-          fetchDomains(),
-          fetchCacheStats(),
-        ]);
-        setCategories(cats);
-        setDomains(doms);
-        setCacheStats(stats);
-      } catch (err) {
-        console.error('Initial data loading failed:', err);
-      } finally {
-        setLoading(false);
+    let cancelled = false;
+    Promise.all([fetchManifest(), fetchCategories(), fetchCacheStats()])
+      .then(([m, c, s]) => {
+        if (!cancelled) {
+          setManifest(m);
+          setCategories(c);
+          setCacheStats(s);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retry]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    const timer = setTimeout(
+      () => {
+        fetchDomains(category, search, sort, page, PAGE_SIZE)
+          .then((result) => {
+            if (!cancelled) {
+              setDomains(result.items);
+              setTotal(result.total);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setError(true);
+          })
+          .finally(() => {
+            if (!cancelled) setLoading(false);
+          });
+      },
+      search ? 180 : 0,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [category, search, sort, page, retry]);
+  const inspect = async (item: DomainItem) => {
+    const request = ++detailRequest.current;
+    setDetailLoading(true);
+    setDetailError(false);
+    try {
+      const value = item.historyLoaded
+        ? item
+        : await fetchDomainDetail(item.domain);
+      if (request === detailRequest.current) {
+        if (value) setDetail(value);
+        else setDetailError(true);
       }
+    } catch {
+      if (request === detailRequest.current) setDetailError(true);
+    } finally {
+      if (request === detailRequest.current) setDetailLoading(false);
     }
-    loadInitialData();
-  }, []);
-
-  // Filtered and Sorted Domains
-  const filteredDomains = useMemo(() => {
-    let result = [...domains];
-
-    // Filter by Category
-    if (selectedCategory !== 'all') {
-      result = result.filter((d) => d.category === selectedCategory);
+  };
+  const addCompare = async (item: DomainItem) => {
+    try {
+      const value = item.historyLoaded
+        ? item
+        : await fetchDomainDetail(item.domain);
+      if (value)
+        setCompared((previous) =>
+          previous.some((d) => d.domain === value.domain) ||
+          previous.length >= 5
+            ? previous
+            : [...previous, value],
+        );
+    } catch {
+      setDetailError(true);
     }
-
-    // Filter by Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(
-        (d) =>
-          d.domain.toLowerCase().includes(q) ||
-          d.titleFa.toLowerCase().includes(q) ||
-          d.titleEn.toLowerCase().includes(q) ||
-          d.categoryFa.toLowerCase().includes(q) ||
-          d.hosting.provider.toLowerCase().includes(q)
+  };
+  const toggleCompare = (item: DomainItem) => {
+    if (compared.some((d) => d.domain === item.domain))
+      setCompared((previous) =>
+        previous.filter((d) => d.domain !== item.domain),
       );
-    }
-
-    // Sorting
-    switch (sortBy) {
-      case 'rank_asc':
-        result.sort((a, b) => a.currentRank - b.currentRank);
-        break;
-      case 'rank_desc':
-        result.sort((a, b) => b.currentRank - a.currentRank);
-        break;
-      case 'growth_1y':
-        result.sort((a, b) => b.rank1yChange - a.rank1yChange);
-        break;
-      case 'drop_1y':
-        result.sort((a, b) => a.rank1yChange - b.rank1yChange);
-        break;
-      case 'name_fa':
-        result.sort((a, b) => a.titleFa.localeCompare(b.titleFa, 'fa'));
-        break;
-      case 'name_en':
-        result.sort((a, b) => a.titleEn.localeCompare(b.titleEn, 'en'));
-        break;
-      default:
-        result.sort((a, b) => a.currentRank - b.currentRank);
-        break;
-    }
-
-    return result;
-  }, [domains, selectedCategory, searchQuery, sortBy]);
-
-  // Comparison Handlers
-  const handleToggleCompare = (domain: DomainItem) => {
-    const exists = comparedDomains.some((d) => d.domain === domain.domain);
-    if (exists) {
-      setComparedDomains((prev) => prev.filter((d) => d.domain !== domain.domain));
-    } else {
-      if (comparedDomains.length >= 5) {
-        alert(isPersian ? 'حداکثر می‌توانید ۵ دامنه را همزمان مقایسه کنید.' : 'Maximum 5 domains in comparison.');
-        return;
-      }
-      setComparedDomains((prev) => [...prev, domain]);
-    }
+    else void addCompare(item);
   };
-
-  const handleAddDomainFromLookup = (newDomain: DomainItem) => {
-    setDomains((prev) => {
-      const exists = prev.some((d) => d.domain === newDomain.domain);
-      if (exists) {
-        return prev.map((d) => (d.domain === newDomain.domain ? newDomain : d));
-      }
-      return [newDomain, ...prev];
-    });
-    setInspectingDomain(newDomain);
+  const updateDomain = (item: DomainItem) => {
+    setDetail(previous => previous?.domain === item.domain ? item : previous);
+    setDomains((previous) =>
+      previous.map((d) => (d.domain === item.domain ? item : d)),
+    );
+    setCompared((previous) =>
+      previous.map((d) => (d.domain === item.domain ? item : d)),
+    );
+    void fetchCacheStats().then(setCacheStats);
   };
-
-  const handleDomainUpdated = (updated: DomainItem) => {
-    setDomains((prev) => prev.map((d) => (d.domain === updated.domain ? updated : d)));
-    setInspectingDomain(updated);
+  const selectCategory = (value: string) => {
+    setCategory(value);
+    setPage(0);
+    setTab("all");
   };
-
-  const handleCacheReset = () => {
-    fetchDomains().then(setDomains);
-  };
-
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* 1. Header (Adhering to Top Bar Contract) */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
       <Header
-        currentTab={currentTab}
-        onSelectTab={(tab) => {
-          setCurrentTab(tab);
-          if (tab === 'methodology') setIsMethodologyOpen(true);
+        currentTab={tab}
+        onSelectTab={(value) => {
+          if (value === "methodology") setMethodOpen(true);
+          else if (value === "compare") setCompareOpen(true);
+          else setTab(value);
         }}
-        compareCount={comparedDomains.length}
-        onOpenCompare={() => setIsCompareOpen(true)}
-        onOpenLookup={() => setIsLookupOpen(true)}
-        onOpenCache={() => setIsCacheOpen(true)}
+        compareCount={compared.length}
+        onOpenCompare={() => setCompareOpen(true)}
+        onOpenLookup={() => setLookupOpen(true)}
+        onOpenCache={() => setCacheOpen(true)}
         cacheStats={cacheStats}
         isPersian={isPersian}
-        onToggleLanguage={() => setIsPersian(!isPersian)}
+        onToggleLanguage={() => setIsPersian((p) => !p)}
       />
-
-      {/* Main Workspace Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Executive Banner & Context Hero */}
-        <div className="relative overflow-hidden p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800">
-          <div className="relative z-10 max-w-3xl space-y-3">
-            <div className="flex items-center gap-2 text-xs text-cyan-400 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>
-                {isPersian
-                  ? 'رصدخانه دامنه‌های ایران بر پایه Tranco List و iran-hosted-domains'
-                  : 'Iranian Domain Observatory · Tranco Research Standard'}
-              </span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        <section className="rounded-2xl border border-slate-800 bg-gradient-to-l from-slate-900 to-slate-950 p-6 sm:p-8 space-y-4">
+          <p className="text-xs text-cyan-400">Tranco · Iran Hosted Domains</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold">
+            {isPersian
+              ? "فهرست دامنه‌های ایرانی و تاریخچه رتبه ترنکو"
+              : "Iranian domain directory & Tranco history"}
+          </h1>
+          <p className="text-sm text-slate-400 leading-7">
+            {isPersian
+              ? "تمام دامنه‌های صریحِ انتشار Iran Hosted Domains، همراه با دامنه‌های منتخب پروژه. این منبع فهرست ثبت رسمی همه دامنه‌های ایرانی نیست. آرشیو پایان ماه و رتبه‌های جدید روزانه از فهرست‌های واقعی ترنکو دریافت می‌شوند."
+              : "Every explicit domain in the Iran Hosted Domains release, plus curated project entries. This source is not a registry of every Iranian domain. History combines real month-end archives with new daily lists."}
+          </p>
+          <div className="flex flex-wrap gap-5 text-xs border-t border-slate-800 pt-4">
+            <span>
+              <strong className="text-white">
+                {manifest?.totalDomains.toLocaleString(
+                  isPersian ? "fa-IR" : "en",
+                ) || "—"}
+              </strong>{" "}
+              {isPersian ? "دامنه" : "domains"}
+            </span>
+            <span>
+              <strong className="text-cyan-400">
+                {manifest?.rankedDomains.toLocaleString(
+                  isPersian ? "fa-IR" : "en",
+                ) || "—"}
+              </strong>{" "}
               {isPersian
-                ? 'تحلیل رتبه، تاریخچه ماهانه از ۲۰۱۹ و مقایسه وبسایت‌های ایرانی'
-                : 'Iran Domain Intelligence & Longitudinal Tranco Analytics'}
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl">
+                ? "در آخرین فهرست یک‌میلیونی"
+                : "in latest top one million"}
+            </span>
+            <span>
+              {isPersian ? "تاریخ آخرین رتبه:" : "Latest ranking:"}{" "}
+              <strong dir="ltr">{manifest?.latestDate || "—"}</strong>
+            </span>
+            <a
+              className="text-cyan-400 underline"
+              href="/data/iran-hosted-domains.txt"
+              download
+            >
               {isPersian
-                ? 'سامانه جامع رصد و تحلیل ترافیک دامنه‌های مستقر در دیتاسنترهای داخلی با تجمیع ماه به ماه از سال ۲۰۱۹، دسته‌بندی تخصصی (ویلا، پرواز، طلا، صرافی، ایکامرس و ...)، مقایسه همزمان و کشینگ آنی داده‌ها.'
-                : 'High-fidelity ranking analytics for Iranian-hosted domains. Track longitudinal Tranco rankings from 2019 to 2026, benchmark competitors across 12 market sectors, and query live domains.'}
-            </p>
-
-            {/* Quick Metrics Bar (Natural typography, no pill badges) */}
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-3 text-xs text-slate-300 border-t border-slate-800/80">
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="font-bold text-white tabular-nums">
-                  {cacheStats ? cacheStats.totalDomains.toLocaleString('fa-IR') : '۱۲۷,۰۶۴'}
-                </span>
-                <span className="text-slate-400">{isPersian ? 'دامنه میزبانی ایران (bootmortis)' : 'bootmortis domains'}</span>
-              </div>
-              <span className="text-slate-700" aria-hidden="true">·</span>
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="font-bold text-white tabular-nums">{categories.length}</span>
-                <span className="text-slate-400">{isPersian ? 'دسته تخصصی بازار' : 'industry sectors'}</span>
-              </div>
-              <span className="text-slate-700" aria-hidden="true">·</span>
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="font-bold text-cyan-400 tabular-nums">
-                  {cacheStats ? `${cacheStats.cachedEntries} دامنه` : 'API زنده'}
-                </span>
-                <span className="text-slate-400">{isPersian ? 'استعلام‌شده در کش Tranco' : 'in Tranco cache'}</span>
-              </div>
-              <span className="text-slate-700" aria-hidden="true">·</span>
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="font-bold text-emerald-400 tabular-nums">{'< 5ms'}</span>
-                <span className="text-slate-400">{isPersian ? 'تاخیر پاسخ کش' : 'cache latency'}</span>
-              </div>
-            </div>
+                ? "دانلود کل فهرست منبع"
+                : "Download full source directory"}
+            </a>
           </div>
+          <p className="text-[11px] text-slate-500">
+            {isPersian ? "انتشار منبع:" : "Source release:"}{" "}
+            {manifest?.source.release || "—"} ·{" "}
+            {isPersian ? "مقایسه سالانه با:" : "Annual comparison with:"}{" "}
+            {manifest?.yearComparisonDate || "—"}
+          </p>
+        </section>
+        <div className="flex gap-3 text-xs md:hidden">
+          <button
+            onClick={() => setTab(tab === "categories" ? "all" : "categories")}
+          >
+            {isPersian ? "دامنه‌ها / دسته‌ها" : "Domains / categories"}
+          </button>
+          <button onClick={() => setCompareOpen(true)}>
+            {isPersian ? "مقایسه" : "Compare"} ({compared.length})
+          </button>
+          <button onClick={() => setMethodOpen(true)}>
+            {isPersian ? "منابع" : "Sources"}
+          </button>
         </div>
-
-        {/* Categories Tab Mode View */}
-        {currentTab === 'categories' ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white">
-                  {isPersian ? 'دسته‌بندی‌های تخصصی بازار وب ایران' : 'Sector Intelligence'}
-                </h2>
-                <p className="text-xs text-slate-400">
-                  {isPersian
-                    ? 'انتخاب هر حوزه برای مشاهده و مقایسه بازیگران اصلی'
-                    : 'Select a market category to inspect leading players'}
-                </p>
-              </div>
+        {tab === "categories" ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {categories.map((c) => (
               <button
-                onClick={() => setCurrentTab('all')}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-medium"
+                key={c.id}
+                onClick={() => selectCategory(c.id)}
+                className="text-start p-5 rounded-xl border border-slate-800 bg-slate-900 space-y-3"
               >
-                {isPersian ? '← بازگشت به کل دامنه‌ها' : '← Back to All Domains'}
+                <h2 className="font-bold">{isPersian ? c.nameFa : c.nameEn}</h2>
+                <p className="text-cyan-400 text-sm">
+                  {c.domainCount.toLocaleString()}{" "}
+                  {isPersian ? "دامنه" : "domains"}
+                </p>
+                <p className="text-slate-400 text-xs">
+                  {isPersian ? "بالاترین رتبه:" : "Top ranked:"} {c.topDomain}
+                </p>
               </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((cat) => {
-                const catDomains = domains.filter((d) => d.category === cat.id);
-                const topD = catDomains.sort((a, b) => a.currentRank - b.currentRank)[0];
-
-                return (
-                  <div
-                    key={cat.id}
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setCurrentTab('all');
-                    }}
-                    className="p-5 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-base font-bold text-white group-hover:text-cyan-400 transition-colors">
-                          {isPersian ? cat.nameFa : cat.nameEn}
-                        </h3>
-                        <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
-                          {cat.domainCount} {isPersian ? 'سایت' : 'sites'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                        {isPersian ? cat.descriptionFa : cat.nameEn}
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-500">{isPersian ? 'برترین سایت:' : 'Top site:'}</span>
-                        <span className="font-mono text-slate-200 font-semibold">
-                          {topD ? (isPersian ? topD.titleFa : topD.titleEn) : cat.topDomain}
-                        </span>
-                      </div>
-                      <span className="text-cyan-400 font-medium group-hover:translate-x-1 transition-transform">
-                        {isPersian ? 'مشاهده دسته ←' : 'Explore →'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            ))}
           </div>
-        ) : null}
-
-        {/* Directory View (Visible on 'all' tab) */}
-        {currentTab === 'all' && (
-          <div className="space-y-4">
-            {/* Category Segmented Controls */}
-            <CategoryNav
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              isPersian={isPersian}
-              totalDomainsCount={domains.length}
-            />
-
-            {/* Filter, Search & Controls Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-              {/* Search Bar */}
-              <div className="relative flex-1">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+        ) : (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900">
+              <div className="relative flex-1 min-w-52">
+                <Search
+                  className="absolute start-3 top-2.5 text-slate-500"
+                  size={16}
+                />
                 <input
-                  type="text"
+                  aria-label={
+                    isPersian ? "جستجوی همه دامنه‌ها" : "Search all domains"
+                  }
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
                   placeholder={
                     isPersian
-                      ? 'جستجو بر اساس نام شرکت، آدرس دامنه (مثال: jabama یا alibaba.ir) یا دیتاسنتر...'
-                      : 'Search by domain, company name or hosting provider...'
+                      ? "جستجو در همه دامنه‌ها..."
+                      : "Search all domains..."
                   }
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pr-9 pl-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  className="w-full rounded-lg bg-slate-950 border border-slate-700 py-2 ps-9 pe-3 text-xs"
                 />
               </div>
-
-              {/* Sorting & View Controls */}
-              <div className="flex items-center gap-2">
-                {/* Sort Selector */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortOption)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
-                  >
-                    <option value="rank_asc">{isPersian ? 'رتبه ترنکو (بهترین‌ها)' : 'Tranco Rank (Best)'}</option>
-                    <option value="growth_1y">{isPersian ? 'بیشترین رشد ۱ ساله' : 'Highest 1Y Growth'}</option>
-                    <option value="drop_1y">{isPersian ? 'بیشترین افت ۱ ساله' : 'Highest 1Y Drop'}</option>
-                    <option value="name_fa">{isPersian ? 'حروف الفبا (فارسی)' : 'Alphabetical (FA)'}</option>
-                    <option value="name_en">{isPersian ? 'حروف الفبا (انگلیسی)' : 'Alphabetical (EN)'}</option>
-                  </select>
-                </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center p-0.5 bg-slate-950 border border-slate-800 rounded-lg">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    title={isPersian ? 'نمای کارت‌ها' : 'Grid View'}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'grid' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('table')}
-                    title={isPersian ? 'نمای جدول فشرده' : 'Table View'}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'table' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Results Count & Quick Compare Info */}
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-              <div>
-                <span>{isPersian ? 'نمایش' : 'Showing'} </span>
-                <span className="font-mono text-cyan-400 font-semibold">{filteredDomains.length}</span>
-                <span> {isPersian ? 'دامنه' : 'domains'}</span>
-                {selectedCategory !== 'all' && (
-                  <button
-                    onClick={() => setSelectedCategory('all')}
-                    className="mr-2 text-cyan-400 hover:underline cursor-pointer"
-                  >
-                    ({isPersian ? 'حذف فیلتر دسته' : 'clear filter'})
-                  </button>
-                )}
-              </div>
-
-              {comparedDomains.length > 0 && (
-                <button
-                  onClick={() => setIsCompareOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
-                >
-                  <ArrowRightLeft className="w-3.5 h-3.5" />
-                  <span>
+              <select
+                aria-label={isPersian ? "دسته‌بندی" : "Category"}
+                value={category}
+                onChange={(e) => selectCategory(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs max-w-52"
+              >
+                <option value="all">
+                  {isPersian ? "همه دسته‌ها" : "All categories"}
+                </option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {isPersian ? c.nameFa : c.nameEn} (
+                    {c.domainCount.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label={isPersian ? "مرتب‌سازی" : "Sort"}
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value as SortOption);
+                  setPage(0);
+                }}
+                className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs"
+              >
+                {(
+                  [
+                    "rank_asc",
+                    "rank_desc",
+                    "growth_1y",
+                    "drop_1y",
+                    "name_fa",
+                    "name_en",
+                  ] as SortOption[]
+                ).map((s, i) => (
+                  <option key={s} value={s}>
                     {isPersian
-                      ? `مشاهده مقایسه (${comparedDomains.length} وبسایت انتخاب شده)`
-                      : `View Comparison (${comparedDomains.length} selected)`}
-                  </span>
-                </button>
-              )}
+                      ? [
+                          "بهترین رتبه",
+                          "رتبه نزولی",
+                          "بیشترین رشد یک‌ساله",
+                          "بیشترین افت یک‌ساله",
+                          "نام فارسی",
+                          "نام انگلیسی",
+                        ][i]
+                      : [
+                          "Best rank",
+                          "Rank descending",
+                          "1Y growth",
+                          "1Y decline",
+                          "Name (FA)",
+                          "Name (EN)",
+                        ][i]}
+                  </option>
+                ))}
+              </select>
+              <button
+                aria-label={isPersian ? "نمای کارت" : "Grid view"}
+                onClick={() => setView("grid")}
+                className={view === "grid" ? "text-cyan-400" : "text-slate-500"}
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button
+                aria-label={isPersian ? "نمای جدول" : "Table view"}
+                onClick={() => setView("table")}
+                className={
+                  view === "table" ? "text-cyan-400" : "text-slate-500"
+                }
+              >
+                <List size={18} />
+              </button>
             </div>
-
-            {/* Domain Items Rendering */}
-            {filteredDomains.length === 0 ? (
-              <div className="p-12 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 space-y-3">
-                <Search className="w-8 h-8 text-slate-600 mx-auto" />
-                <h3 className="text-sm font-semibold text-slate-300">
-                  {isPersian ? 'هیچ دامنه‌ای با این مشخصات یافت نشد' : 'No domains match your criteria'}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {error ? (
+              <div
+                role="alert"
+                className="p-6 rounded-xl border border-rose-900 text-rose-300 text-sm space-y-3"
+              >
+                <p>
                   {isPersian
-                    ? 'می‌توانید هر دامنه دلخواهی را از طریق دکمه «استعلام یا افزودن دامنه» به صورت لحظه‌ای از ترنکو دریافت و اضافه کنید.'
-                    : 'You can query any custom domain directly from Tranco and add it to the platform.'}
+                    ? "بارگذاری داده‌ها انجام نشد. اتصال و فایل‌های داده را بررسی کنید."
+                    : "Could not load the dataset. Check the connection and data files."}
                 </p>
                 <button
-                  onClick={() => setIsLookupOpen(true)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
+                  className="underline"
+                  onClick={() => setRetry((n) => n + 1)}
                 >
-                  {isPersian ? 'استعلام این دامنه در ترنکو' : 'Lookup this domain on Tranco'}
+                  {isPersian ? "تلاش دوباره" : "Retry"}
                 </button>
               </div>
-            ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredDomains.map((domain) => (
-                  <DomainCard
-                    key={domain.domain}
-                    domain={domain}
-                    onSelect={setInspectingDomain}
-                    isCompared={comparedDomains.some((d) => d.domain === domain.domain)}
-                    onToggleCompare={handleToggleCompare}
-                    isPersian={isPersian}
-                  />
-                ))}
-              </div>
+            ) : loading ? (
+              <p role="status" className="py-12 text-center text-cyan-400">
+                {isPersian ? "در حال بارگذاری..." : "Loading..."}
+              </p>
             ) : (
-              <DomainTable
-                domains={filteredDomains}
-                onSelect={setInspectingDomain}
-                comparedDomains={comparedDomains}
-                onToggleCompare={handleToggleCompare}
-                isPersian={isPersian}
-                currentSort={sortBy}
-                onSortChange={setSortBy}
-              />
+              <>
+                <p className="text-xs text-slate-400">
+                  {isPersian
+                    ? `نمایش ${total ? page * PAGE_SIZE + 1 : 0} تا ${Math.min((page + 1) * PAGE_SIZE, total)} از ${total.toLocaleString()} نتیجه`
+                    : `Showing ${total ? page * PAGE_SIZE + 1 : 0}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total.toLocaleString()} results`}
+                </p>
+                {!total ? (
+                  <p className="text-center py-12 text-slate-400">
+                    {isPersian ? "دامنه‌ای پیدا نشد." : "No domains found."}
+                  </p>
+                ) : view === "grid" ? (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {domains.map((d) => (
+                      <DomainCard
+                        key={d.domain}
+                        domain={d}
+                        onSelect={inspect}
+                        isCompared={compared.some((c) => c.domain === d.domain)}
+                        onToggleCompare={toggleCompare}
+                        isPersian={isPersian}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <DomainTable
+                    domains={domains}
+                    onSelect={inspect}
+                    comparedDomains={compared}
+                    onToggleCompare={toggleCompare}
+                    isPersian={isPersian}
+                    currentSort={sort}
+                    onSortChange={(s) => {
+                      setSort(s);
+                      setPage(0);
+                    }}
+                  />
+                )}
+                <div className="flex items-center justify-center gap-4 text-xs py-3">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="bg-slate-800 rounded px-4 py-2 disabled:opacity-30"
+                  >
+                    {isPersian ? "قبلی" : "Previous"}
+                  </button>
+                  <label>
+                    {isPersian ? "صفحه" : "Page"}{" "}
+                    <input
+                      aria-label={isPersian ? "شماره صفحه" : "Page number"}
+                      type="number"
+                      min={1}
+                      max={pages}
+                      value={page + 1}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isInteger(n) && n >= 1 && n <= pages)
+                          setPage(n - 1);
+                      }}
+                      className="w-16 bg-slate-900 border border-slate-700 rounded p-2 mx-2"
+                    />{" "}
+                    / {pages.toLocaleString()}
+                  </label>
+                  <button
+                    disabled={page + 1 >= pages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="bg-slate-800 rounded px-4 py-2 disabled:opacity-30"
+                  >
+                    {isPersian ? "بعدی" : "Next"}
+                  </button>
+                </div>
+              </>
             )}
-          </div>
+          </section>
         )}
+        <footer className="text-xs text-slate-500 border-t border-slate-800 py-5 flex flex-wrap gap-5">
+          <a
+            href="https://github.com/bootmortis/iran-hosted-domains"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Iran Hosted Domains
+          </a>
+          <a href="https://tranco-list.eu/" target="_blank" rel="noreferrer">
+            Tranco
+          </a>
+          <button onClick={() => setMethodOpen(true)}>
+            {isPersian ? "روش‌شناسی و پوشش داده" : "Methodology & coverage"}
+          </button>
+        </footer>
       </main>
-
-      {/* Floating Sticky Comparison Bar (if domains selected) */}
-      {comparedDomains.length > 0 && !isCompareOpen && (
-        <aside
-          aria-label={isPersian ? 'نوار دسترسی سریع مقایسه دامنه‌ها' : 'Domain Comparison Quick Bar'}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-xl w-[90%] bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center justify-between gap-3"
+      {(detailLoading || detailError) && (
+        <div
+          role="status"
+          className="fixed bottom-5 start-1/2 -translate-x-1/2 z-[60] rounded-xl bg-slate-800 border border-slate-600 p-4 text-sm flex gap-3"
         >
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
-              {isPersian ? 'دامنه‌های انتخابی:' : 'Selected:'}
-            </span>
-            <div className="flex items-center gap-1.5">
-              {comparedDomains.map((d) => (
-                <span
-                  key={d.domain}
-                  className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 text-xs font-mono font-medium"
-                >
-                  {d.domain}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsCompareOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors whitespace-nowrap"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              <span>{isPersian ? 'مشاهده مقایسه' : 'Compare'}</span>
-            </button>
-            <button
-              onClick={() => setComparedDomains([])}
-              className="text-xs text-slate-400 hover:text-white px-2 py-1"
-            >
-              {isPersian ? 'انصراف' : 'Dismiss'}
-            </button>
-          </div>
-        </aside>
+          {detailLoading ? (
+            <RefreshCw size={16} className="animate-spin" />
+          ) : null}
+          {detailLoading
+            ? isPersian
+              ? "دریافت تاریخچه..."
+              : "Loading history..."
+            : isPersian
+              ? "دریافت تاریخچه انجام نشد؛ دوباره تلاش کنید."
+              : "History could not be loaded; please retry."}
+          <button
+            onClick={() => {
+              ++detailRequest.current;
+              setDetailLoading(false);
+              setDetailError(false);
+            }}
+          >
+            ×
+          </button>
+        </div>
       )}
-
-      {/* Modals & Drawers */}
-      <DomainDetailModal
-        domain={inspectingDomain}
-        onClose={() => setInspectingDomain(null)}
-        onToggleCompare={handleToggleCompare}
-        isCompared={
-          inspectingDomain
-            ? comparedDomains.some((d) => d.domain === inspectingDomain.domain)
-            : false
-        }
-        isPersian={isPersian}
-        allDomains={domains}
-        onSelectDomain={setInspectingDomain}
-        onDomainUpdated={handleDomainUpdated}
-      />
-
+      {detail && (
+        <DomainDetailModal
+          key={detail.domain}
+          domain={detail}
+          onClose={() => setDetail(null)}
+          isPersian={isPersian}
+          onDomainUpdated={updateDomain}
+        />
+      )}
       <ComparisonModal
-        isOpen={isCompareOpen}
-        onClose={() => setIsCompareOpen(false)}
-        comparedDomains={comparedDomains}
-        allDomains={domains}
-        onRemoveDomain={handleToggleCompare}
-        onAddDomain={handleToggleCompare}
+        isOpen={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        comparedDomains={compared}
+        onRemoveDomain={(d) =>
+          setCompared((p) => p.filter((x) => x.domain !== d.domain))
+        }
+        onAddDomain={addCompare}
         onSelectDomain={(d) => {
-          setIsCompareOpen(false);
-          setInspectingDomain(d);
+          setCompareOpen(false);
+          void inspect(d);
         }}
         isPersian={isPersian}
       />
-
       <AddDomainModal
-        isOpen={isLookupOpen}
-        onClose={() => setIsLookupOpen(false)}
-        onDomainAdded={handleAddDomainFromLookup}
+        isOpen={lookupOpen}
+        onClose={() => setLookupOpen(false)}
+        onDomainAdded={(d) => {
+          setLookupOpen(false);
+          setDetail(d);
+          setRetry(n => n + 1);
+        }}
         isPersian={isPersian}
       />
-
       <CacheManagerModal
-        isOpen={isCacheOpen}
-        onClose={() => setIsCacheOpen(false)}
+        isOpen={cacheOpen}
+        onClose={() => setCacheOpen(false)}
         cacheStats={cacheStats}
         onStatsUpdated={setCacheStats}
-        onCacheReset={handleCacheReset}
+        onCacheReset={() => {
+          setRetry((n) => n + 1);
+          setCompared([]);
+          setDetail(null);
+        }}
         isPersian={isPersian}
       />
-
       <MethodologyModal
-        isOpen={isMethodologyOpen}
-        onClose={() => setIsMethodologyOpen(false)}
+        isOpen={methodOpen}
+        onClose={() => setMethodOpen(false)}
         isPersian={isPersian}
       />
     </div>

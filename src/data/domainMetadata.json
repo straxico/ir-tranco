@@ -1,0 +1,312 @@
+{
+  "jabama.com": {
+    "titleFa": "جاباما",
+    "titleEn": "Jabama",
+    "category": "villa-rentals"
+  },
+  "jajiga.com": {
+    "titleFa": "جاجیگا",
+    "titleEn": "Jajiga",
+    "category": "villa-rentals"
+  },
+  "shab.ir": {
+    "titleFa": "شب",
+    "titleEn": "Shab",
+    "category": "villa-rentals"
+  },
+  "otaghak.com": {
+    "titleFa": "اتاقک",
+    "titleEn": "Otaghak",
+    "category": "villa-rentals"
+  },
+  "mihmansho.com": {
+    "titleFa": "مهمان‌شو",
+    "titleEn": "Mihmansho",
+    "category": "villa-rentals"
+  },
+  "homsa.net": {
+    "titleFa": "هومسا",
+    "titleEn": "Homsa",
+    "category": "villa-rentals"
+  },
+  "alibaba.ir": {
+    "titleFa": "علی‌بابا",
+    "titleEn": "Alibaba",
+    "category": "travel-booking"
+  },
+  "flytoday.ir": {
+    "titleFa": "فلای‌تودی",
+    "titleEn": "FlyToday",
+    "category": "travel-booking"
+  },
+  "snapptrip.com": {
+    "titleFa": "اسنپ‌تریپ",
+    "titleEn": "SnappTrip",
+    "category": "travel-booking"
+  },
+  "safarmarket.com": {
+    "titleFa": "سفرمارکت",
+    "titleEn": "SafarMarket",
+    "category": "travel-booking"
+  },
+  "respina24.ir": {
+    "titleFa": "رسپینا ۲۴",
+    "titleEn": "Respina24",
+    "category": "travel-booking"
+  },
+  "flightio.com": {
+    "titleFa": "فلایتیو",
+    "titleEn": "Flightio",
+    "category": "travel-booking"
+  },
+  "tgju.org": {
+    "titleFa": "شبکه اطلاع‌رسانی طلا و ارز (TGJU)",
+    "titleEn": "TGJU",
+    "category": "gold-jewelry"
+  },
+  "tala.ir": {
+    "titleFa": "طلا",
+    "titleEn": "Tala.ir",
+    "category": "gold-jewelry"
+  },
+  "zar.ir": {
+    "titleFa": "زر",
+    "titleEn": "Zar",
+    "category": "gold-jewelry"
+  },
+  "melligold.com": {
+    "titleFa": "ملی‌گلد",
+    "titleEn": "MelliGold",
+    "category": "gold-jewelry"
+  },
+  "goldika.ir": {
+    "titleFa": "گلدیکا",
+    "titleEn": "Goldika",
+    "category": "gold-jewelry"
+  },
+  "tahapakhsh.com": {
+    "titleFa": "طه پخش",
+    "titleEn": "TahaPakhsh",
+    "category": "gold-jewelry"
+  },
+  "nobitex.ir": {
+    "titleFa": "نوبیتکس",
+    "titleEn": "Nobitex",
+    "category": "crypto-exchanges"
+  },
+  "wallex.ir": {
+    "titleFa": "والکس",
+    "titleEn": "Wallex",
+    "category": "crypto-exchanges"
+  },
+  "abantether.com": {
+    "titleFa": "آبان‌تتر",
+    "titleEn": "AbanTether",
+    "category": "crypto-exchanges"
+  },
+  "bitpin.ir": {
+    "titleFa": "بیت‌پین",
+    "titleEn": "Bitpin",
+    "category": "crypto-exchanges"
+  },
+  "ramzinex.com": {
+    "titleFa": "رمزینکس",
+    "titleEn": "Ramzinex",
+    "category": "crypto-exchanges"
+  },
+  "tabdeal.org": {
+    "titleFa": "تبدیل",
+    "titleEn": "Tabdeal",
+    "category": "crypto-exchanges"
+  },
+  "ompfinex.com": {
+    "titleFa": "اوام‌پی فینکس",
+    "titleEn": "OMPfinex",
+    "category": "crypto-exchanges"
+  },
+  "digikala.com": {
+    "titleFa": "دیجی‌کالا",
+    "titleEn": "Digikala",
+    "category": "ecommerce-marketplaces"
+  },
+  "torob.com": {
+    "titleFa": "ترب",
+    "titleEn": "Torob",
+    "category": "ecommerce-marketplaces"
+  },
+  "emalls.ir": {
+    "titleFa": "ایمالز",
+    "titleEn": "Emalls",
+    "category": "ecommerce-marketplaces"
+  },
+  "basalam.com": {
+    "titleFa": "باسلام",
+    "titleEn": "Basalam",
+    "category": "ecommerce-marketplaces"
+  },
+  "technolife.ir": {
+    "titleFa": "تکنولایف",
+    "titleEn": "Technolife",
+    "category": "ecommerce-marketplaces"
+  },
+  "khanoumi.com": {
+    "titleFa": "خانومی",
+    "titleEn": "Khanoumi",
+    "category": "ecommerce-marketplaces"
+  },
+  "snapp.ir": {
+    "titleFa": "اسنپ",
+    "titleEn": "Snapp",
+    "category": "mobility-services"
+  },
+  "tapsi.ir": {
+    "titleFa": "تپسی",
+    "titleEn": "Tapsi",
+    "category": "mobility-services"
+  },
+  "alopeyk.com": {
+    "titleFa": "الوپیک",
+    "titleEn": "Alopeyk",
+    "category": "mobility-services"
+  },
+  "achareh.ir": {
+    "titleFa": "آچاره",
+    "titleEn": "Achareh",
+    "category": "mobility-services"
+  },
+  "aparat.com": {
+    "titleFa": "آپارات",
+    "titleEn": "Aparat",
+    "category": "vod-entertainment"
+  },
+  "filimo.com": {
+    "titleFa": "فیلیمو",
+    "titleEn": "Filimo",
+    "category": "vod-entertainment"
+  },
+  "namava.ir": {
+    "titleFa": "نماوا",
+    "titleEn": "Namava",
+    "category": "vod-entertainment"
+  },
+  "telewebion.com": {
+    "titleFa": "تلوبیون",
+    "titleEn": "Telewebion",
+    "category": "vod-entertainment"
+  },
+  "filmnet.ir": {
+    "titleFa": "فیلم‌نت",
+    "titleEn": "Filmnet",
+    "category": "vod-entertainment"
+  },
+  "varzesh3.com": {
+    "titleFa": "ورزش سه",
+    "titleEn": "Varzesh3",
+    "category": "news-tech-media"
+  },
+  "zoomit.ir": {
+    "titleFa": "زومیت",
+    "titleEn": "Zoomit",
+    "category": "news-tech-media"
+  },
+  "digiato.com": {
+    "titleFa": "دیجیاتو",
+    "titleEn": "Digiato",
+    "category": "news-tech-media"
+  },
+  "farsnews.ir": {
+    "titleFa": "خبرگزاری فارس",
+    "titleEn": "Fars News",
+    "category": "news-tech-media"
+  },
+  "tasnimnews.com": {
+    "titleFa": "خبرگزاری تسنیم",
+    "titleEn": "Tasnim News",
+    "category": "news-tech-media"
+  },
+  "rubika.ir": {
+    "titleFa": "روبیکا",
+    "titleEn": "Rubika",
+    "category": "messaging-social"
+  },
+  "eitaa.com": {
+    "titleFa": "ایتا",
+    "titleEn": "Eitaa",
+    "category": "messaging-social"
+  },
+  "bale.ai": {
+    "titleFa": "بله",
+    "titleEn": "Bale",
+    "category": "messaging-social"
+  },
+  "gap.im": {
+    "titleFa": "گپ",
+    "titleEn": "Gap",
+    "category": "messaging-social"
+  },
+  "zarinpal.com": {
+    "titleFa": "زرین‌پال",
+    "titleEn": "Zarinpal",
+    "category": "banking-fintech"
+  },
+  "blubank.sb24.ir": {
+    "titleFa": "بلوبانک",
+    "titleEn": "BluBank",
+    "category": "banking-fintech"
+  },
+  "bimebazar.com": {
+    "titleFa": "بیمه‌بازار",
+    "titleEn": "BimehBazar",
+    "category": "banking-fintech"
+  },
+  "bmi.ir": {
+    "titleFa": "بانک ملی ایران",
+    "titleEn": "Bank Melli Iran",
+    "category": "banking-fintech"
+  },
+  "divar.ir": {
+    "titleFa": "دیوار",
+    "titleEn": "Divar",
+    "category": "classifieds-realestate"
+  },
+  "sheypoor.com": {
+    "titleFa": "شیپور",
+    "titleEn": "Sheypoor",
+    "category": "classifieds-realestate"
+  },
+  "bama.ir": {
+    "titleFa": "باما",
+    "titleEn": "Bama",
+    "category": "classifieds-realestate"
+  },
+  "delta.ir": {
+    "titleFa": "دلتا",
+    "titleEn": "Delta Real Estate",
+    "category": "classifieds-realestate"
+  },
+  "jobinja.ir": {
+    "titleFa": "جابینجا",
+    "titleEn": "Jobinja",
+    "category": "edtech-jobs"
+  },
+  "faradars.org": {
+    "titleFa": "فرادرس",
+    "titleEn": "Faradars",
+    "category": "edtech-jobs"
+  },
+  "maktabkhooneh.org": {
+    "titleFa": "مکتب‌خونه",
+    "titleEn": "Maktabkhooneh",
+    "category": "edtech-jobs"
+  },
+  "quera.org": {
+    "titleFa": "کوئرا",
+    "titleEn": "Quera",
+    "category": "edtech-jobs"
+  },
+  "jobvision.ir": {
+    "titleFa": "جاب‌ویژن",
+    "titleEn": "JobVision",
+    "category": "edtech-jobs"
+  }
+}

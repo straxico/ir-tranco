@@ -10,3 +10,6 @@ coverage/
 *.db-journal
 /public/data/*.db
 
+
+.data-cache/
+__pycache__/

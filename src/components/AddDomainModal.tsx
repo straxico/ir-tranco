@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Search, Globe, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { DomainItem } from '../types/domain';
+import { formatRank } from '../utils/ranks';
 import { lookupDomain } from '../services/api';
 
 interface AddDomainModalProps {
@@ -136,7 +137,7 @@ export const AddDomainModal: React.FC<AddDomainModalProps> = ({
                 <div>
                   <span className="text-slate-400">{isPersian ? 'رتبه ترنکو:' : 'Tranco Rank:'}</span>{' '}
                   <span className="font-mono text-cyan-400 font-bold tabular-nums">
-                    #{successResult.domain.currentRank.toLocaleString()}
+                    {formatRank(successResult.domain.currentRank)}
                   </span>
                 </div>
               </div>

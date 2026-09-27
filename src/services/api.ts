@@ -1,253 +1,414 @@
-import { CategoryItem, DomainItem, CacheStats } from '../types/domain';
-import { INITIAL_DOMAINS, CATEGORIES } from '../data/iranianDomains';
-import cachedLiveTranco from '../data/cachedTrancoDomains.json';
+import {
+  CategoryItem,
+  DomainItem,
+  CacheStats,
+  DataManifest,
+  SortOption,
+  RankDataPoint,
+} from "../types/domain";
+import { CATEGORIES } from "../data/iranianDomains";
+import metadataJson from "../data/domainMetadata.json";
+import { changeAt, mergeHistory } from "../utils/ranks";
 
-// Combine static initial domains with real live Tranco cached data
-const LIVE_TRANCO_DOMAINS: DomainItem[] = (cachedLiveTranco as DomainItem[]).concat(
-  INITIAL_DOMAINS.filter(
-    (d) => !(cachedLiveTranco as DomainItem[]).some((t) => t.domain.toLowerCase() === d.domain.toLowerCase())
-  )
-);
+type Row = [
+  string,
+  number | null,
+  number | null,
+  number | null,
+  string | null,
+  boolean,
+  (string | null)?,
+];
+type Summary = Pick<
+  DomainItem,
+  | "currentRank"
+  | "rankDate"
+  | "rank1yChange"
+  | "peakRank"
+  | "peakDate"
+  | "cachedAt"
+>;
+type RecentCache = {
+  ranks: RankDataPoint[];
+  fetchedAt: string;
+  summary?: Summary;
+};
+type Metadata = { titleFa: string; titleEn: string; category: string };
+const metadata: Record<string, Metadata> = metadataJson;
+const CACHE_KEY = "iran_tranco_recent_v2"; // Old synthetic caches are deliberately ignored.
+let manifestPromise: Promise<DataManifest> | undefined;
+let directoryPromise: Promise<Row[]> | undefined;
+const historyCache = new Map<
+  string,
+  Promise<Record<string, [number, number][]>>
+>();
+let hits = 0,
+  misses = 0;
+let apiStatus: CacheStats["trancoApiStatus"] = "cached_mode";
 
-// Client-side local cache to save lookups during Vercel deployment
-const CLIENT_CACHE_KEY = 'iran_domain_tranco_cache_v1';
-
-function getLocalCache(): Record<string, DomainItem> {
+async function json<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Data request failed (${response.status})`);
+  return response.json();
+}
+export function fetchManifest(): Promise<DataManifest> {
+  return (manifestPromise ??= json<DataManifest>("/data/manifest.json").catch(
+    (e) => {
+      manifestPromise = undefined;
+      throw e;
+    },
+  ));
+}
+async function directory(): Promise<Row[]> {
+  return (directoryPromise ??= fetchManifest()
+    .then((m) => json<Row[]>(`/data/${m.assetsPrefix}/directory.json`))
+    .catch((e) => {
+      directoryPromise = undefined;
+      throw e;
+    }));
+}
+function localCache(): Record<string, RecentCache> {
   try {
-    const raw = localStorage.getItem(CLIENT_CACHE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, value]: [string, any]) =>
+          value &&
+          typeof value.fetchedAt === "string" &&
+          Array.isArray(value.ranks) &&
+          value.ranks.every(
+            (p: any) =>
+              typeof p.date === "string" &&
+              /^\d{4}-\d{2}-\d{2}$/.test(p.date) &&
+              Number.isInteger(p.rank) &&
+              p.rank > 0,
+          ),
+      ),
+    ) as Record<string, RecentCache>;
   } catch {
     return {};
   }
 }
-
-function setLocalCache(domain: DomainItem): void {
-  try {
-    const c = getLocalCache();
-    c[domain.domain.toLowerCase()] = domain;
-    localStorage.setItem(CLIENT_CACHE_KEY, JSON.stringify(c));
-  } catch {
-    // ignore
-  }
+function rowItem(row: Row, m: DataManifest): DomainItem {
+  const [domain, rank, change, peak, peakDate, fromSource, coverageStart] = row;
+  const labels = metadata[domain];
+  const category = labels?.category || "uncategorized";
+  return {
+    domain,
+    titleFa: labels?.titleFa || domain,
+    titleEn: labels?.titleEn || domain,
+    descriptionFa: fromSource
+      ? "ثبت‌شده در فهرست عمومی Iran Hosted Domains"
+      : "دامنه افزوده‌شده به فهرست پروژه",
+    descriptionEn: fromSource
+      ? "Included in the Iran Hosted Domains release"
+      : "Curated project domain",
+    category,
+    categoryFa: CATEGORIES.find((c) => c.id === category)?.nameFa || category,
+    currentRank: rank,
+    rankStatus: coverageStart && coverageStart > m.latestDate ? "not_collected" : rank == null ? "unranked" : "ranked",
+    rankDate: m.latestDate,
+    rank1yChange: change,
+    rank30dAvg: null,
+    rank30dChange: null,
+    rank5yChange: null,
+    peakRank: peak,
+    peakDate: peakDate || "—",
+    history: [],
+    cachedAt: m.generatedAt,
+    hosting: {
+      asn: "—",
+      provider: "—",
+      ip: "—",
+      bootmortisVerified: fromSource,
+      reverseProxy: false,
+      sslIssuer: "—",
+      cdn: "—",
+      location: "—",
+    },
+    trancoLive: false,
+    dataSource: peak == null ? "bootmortis_index" : "tranco_cached",
+  };
 }
 
 export async function fetchCategories(): Promise<CategoryItem[]> {
-  try {
-    const res = await fetch('/api/categories');
-    if (!res.ok) throw new Error('API error');
-    return await res.json();
-  } catch {
-    // Vercel serverless / static fallback
-    const local = getLocalCache();
-    const all = { ...local };
-    LIVE_TRANCO_DOMAINS.forEach((d) => {
-      if (!all[d.domain.toLowerCase()]) all[d.domain.toLowerCase()] = d;
-    });
-    const domainList = Object.values(all);
-
-    return CATEGORIES.map((cat) => {
-      const catDomains = domainList.filter((d) => d.category === cat.id);
-      return {
-        ...cat,
-        domainCount: catDomains.length > 0 ? catDomains.length : cat.domainCount,
-        topDomain: catDomains.sort((a, b) => a.currentRank - b.currentRank)[0]?.domain || cat.topDomain,
-      };
-    });
+  const rows = await directory();
+  const counts = new Map<string, number>();
+  const top = new Map<string, Row>();
+  for (const row of rows) {
+    const category = metadata[row[0]]?.category || "uncategorized";
+    counts.set(category, (counts.get(category) || 0) + 1);
+    if (
+      row[1] != null &&
+      (!top.has(category) || row[1] < top.get(category)![1]!)
+    )
+      top.set(category, row);
   }
+  return CATEGORIES.map((c) => ({
+    ...c,
+    domainCount: counts.get(c.id) || 0,
+    topDomain: top.get(c.id)?.[0] || "—",
+  }));
 }
 
 export async function fetchDomains(
-  category?: string,
-  search?: string,
-  sort?: string
-): Promise<DomainItem[]> {
-  try {
-    const params = new URLSearchParams();
-    if (category && category !== 'all') params.set('category', category);
-    if (search) params.set('search', search);
-    if (sort) params.set('sort', sort);
-
-    const res = await fetch(`/api/domains?${params.toString()}`);
-    if (!res.ok) throw new Error('API error');
-    return await res.json();
-  } catch {
-    // Client-side fallback for Vercel
-    const local = getLocalCache();
-    const map = new Map<string, DomainItem>();
-
-    // Merge in priority order: base live Tranco, then client local cache
-    LIVE_TRANCO_DOMAINS.forEach((d) => map.set(d.domain.toLowerCase(), d));
-    Object.values(local).forEach((d) => map.set(d.domain.toLowerCase(), d));
-
-    let list = Array.from(map.values());
-
-    if (category && category !== 'all') {
-      list = list.filter((d) => d.category === category);
-    }
-    if (search && search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(
-        (d) =>
-          d.domain.toLowerCase().includes(q) ||
-          d.titleFa.toLowerCase().includes(q) ||
-          d.titleEn.toLowerCase().includes(q) ||
-          d.categoryFa.toLowerCase().includes(q)
+  category = "all",
+  search = "",
+  sort: SortOption = "rank_asc",
+  page = 0,
+  pageSize = 60,
+): Promise<{ items: DomainItem[]; total: number }> {
+  const [baseRows, m] = await Promise.all([directory(), fetchManifest()]);
+  const recent = localCache();
+  const present = new Set(baseRows.map((r) => r[0]));
+  const rows: Row[] = [
+    ...baseRows,
+    ...Object.keys(recent)
+      .filter((d) => !present.has(d))
+      .map((d) => [d, null, null, null, null, false] as Row),
+  ].map((row) => {
+    const summary = recent[row[0]]?.summary;
+    return summary && summary.rankDate >= m.latestDate
+      ? [
+          row[0],
+          summary.currentRank,
+          summary.rank1yChange,
+          summary.peakRank,
+          summary.peakDate,
+          row[5],
+          row[6],
+        ]
+      : row;
+  });
+  const query = search.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    const labels = metadata[row[0]];
+    return (
+      (category === "all" ||
+        (labels?.category || "uncategorized") === category) &&
+      (!query ||
+        row[0].includes(query) ||
+        labels?.titleFa.toLowerCase().includes(query) ||
+        labels?.titleEn.toLowerCase().includes(query))
+    );
+  });
+  filtered.sort((a, b) => {
+    if (sort === "name_fa" || sort === "name_en") {
+      const field = sort === "name_fa" ? "titleFa" : "titleEn";
+      return (metadata[a[0]]?.[field] || a[0]).localeCompare(
+        metadata[b[0]]?.[field] || b[0],
+        sort === "name_fa" ? "fa" : "en",
       );
     }
-
-    if (sort === 'growth_1y') {
-      list.sort((a, b) => b.rank1yChange - a.rank1yChange);
-    } else if (sort === 'drop_1y') {
-      list.sort((a, b) => a.rank1yChange - b.rank1yChange);
-    } else if (sort === 'name_fa') {
-      list.sort((a, b) => a.titleFa.localeCompare(b.titleFa, 'fa'));
-    } else if (sort === 'name_en') {
-      list.sort((a, b) => a.domain.localeCompare(b.domain, 'en'));
-    } else {
-      list.sort((a, b) => a.currentRank - b.currentRank);
-    }
-    return list;
-  }
-}
-
-export async function fetchDomainDetail(domain: string): Promise<DomainItem | null> {
-  try {
-    const res = await fetch(`/api/domains/${encodeURIComponent(domain)}`);
-    if (!res.ok) throw new Error('API error');
-    return await res.json();
-  } catch {
-    const local = getLocalCache();
-    if (local[domain.toLowerCase()]) return local[domain.toLowerCase()];
-    const found = LIVE_TRANCO_DOMAINS.find((d) => d.domain.toLowerCase() === domain.toLowerCase());
-    if (found) return found;
-
-    // Direct browser query to Tranco API if running purely client-side on Vercel
-    try {
-      const trancoRes = await fetch(`https://tranco-list.eu/api/ranks/domain/${encodeURIComponent(domain)}`);
-      if (trancoRes.ok) {
-        const data = await trancoRes.json();
-        const ranks = data.ranks || [];
-        if (ranks.length > 0) {
-          const cur = ranks[0].rank;
-          const peak = Math.min(...ranks.map((r: any) => r.rank));
-          const peakObj = ranks.find((r: any) => r.rank === peak);
-          const history = ranks.slice().reverse().map((r: any) => ({ date: r.date, rank: r.rank }));
-
-          const created: DomainItem = {
-            domain,
-            titleFa: domain,
-            titleEn: domain,
-            descriptionFa: `دامنه ${domain} مستقیماً از Tranco List استعلام و کش شد`,
-            descriptionEn: `Domain ${domain} fetched live via Tranco research API`,
-            category: 'ecommerce-marketplaces',
-            categoryFa: 'فروشگاه‌های اینترنتی و خدمات وب',
-            currentRank: cur,
-            rank30dAvg: cur,
-            rank30dChange: ranks.length > 1 ? ranks[1].rank - cur : 0,
-            rank1yChange: ranks.length > 1 ? ranks[ranks.length - 1].rank - cur : 0,
-            rank5yChange: 0,
-            peakRank: peak,
-            peakDate: peakObj?.date || '2026-09',
-            history,
-            hosting: {
-              asn: 'AS197207 ArvanCloud',
-              provider: 'National Infrastructure / ArvanCloud',
-              ip: '185.143.232.1',
-              bootmortisVerified: true,
-              reverseProxy: true,
-              sslIssuer: "Let's Encrypt",
-              cdn: 'ArvanCloud Edge',
-              location: 'Tehran, Iran',
-            },
-            cachedAt: new Date().toISOString(),
+    const index = sort === "growth_1y" || sort === "drop_1y" ? 2 : 1;
+    const av = a[index],
+      bv = b[index];
+    if (av == null || bv == null)
+      return av == null && bv == null
+        ? a[0].localeCompare(b[0])
+        : av == null
+          ? 1
+          : -1;
+    const direction = sort === "rank_desc" || sort === "growth_1y" ? -1 : 1;
+    return (av - bv) * direction || a[0].localeCompare(b[0]);
+  });
+  return {
+    total: filtered.length,
+    items: filtered.slice(page * pageSize, (page + 1) * pageSize).map((row) => {
+      const item = rowItem(row, m);
+      const summary = recent[row[0]]?.summary;
+      return summary && summary.rankDate >= m.latestDate
+        ? {
+            ...item,
+            ...summary,
             trancoLive: true,
-            dataSource: 'tranco_api',
-          };
-          setLocalCache(created);
-          return created;
-        }
+            dataSource: "tranco_api" as const,
+          }
+        : item;
+    }),
+  };
+}
+
+function applyHistory(item: DomainItem, history: RankDataPoint[]): DomainItem {
+  const ranked = history.filter((p) => p.rank != null);
+  const peak = ranked.reduce<RankDataPoint | undefined>(
+    (best, p) => (!best || p.rank! < best.rank! ? p : best),
+    undefined,
+  );
+  const latest = history[history.length - 1];
+  return {
+    ...item,
+    history,
+    historyLoaded: true,
+    currentRank: latest?.rank ?? null,
+    rankStatus: latest?.status || "not_collected",
+    rankDate: latest?.date || item.rankDate,
+    peakRank: peak?.rank ?? null,
+    peakDate: peak?.date || "—",
+    rank1yChange: changeAt(history, 12),
+    rank30dChange: changeAt(history, 1),
+    rank5yChange: changeAt(history, 60),
+  };
+}
+
+export async function fetchDomainDetail(
+  domain: string,
+): Promise<DomainItem | null> {
+  const [rows, m] = await Promise.all([directory(), fetchManifest()]);
+  const name = domain.toLowerCase();
+  const row = rows.find((r) => r[0] === name);
+  const recent = localCache()[name];
+  if (!row && !recent) return null;
+  const item = rowItem(row || [name, null, null, null, null, false], m);
+  const shard = (Array.from(name).reduce((n, c) => n + c.charCodeAt(0), 0) % 64)
+    .toString(16)
+    .padStart(2, "0");
+  if (!historyCache.has(shard)) {
+    misses++;
+    historyCache.set(
+      shard,
+      json<Record<string, [number, number][]>>(
+        `/data/${m.assetsPrefix}/history/${shard}.json`,
+      ).catch((e) => {
+        historyCache.delete(shard);
+        throw e;
+      }),
+    );
+  } else hits++;
+  const data = await historyCache.get(shard)!;
+  const ranks = new Map(data[name] || []);
+  const archive: RankDataPoint[] = m.snapshots.map((s, i) => ({
+    date: s.date,
+    listId: s.listId,
+    rank: ranks.get(i) ?? null,
+    status:
+      !row || (row[6] && s.date < row[6]) ? "not_collected" : s.status === "unavailable"
+        ? "unavailable"
+        : ranks.has(i)
+          ? "ranked"
+          : "unranked",
+  }));
+  const result = applyHistory(item, mergeHistory(archive, recent?.ranks || []));
+  return recent
+    ? {
+        ...result,
+        cachedAt: recent.fetchedAt,
+        trancoLive: true,
+        dataSource: "tranco_api",
       }
-    } catch {
-      // fallback
-    }
-
-    return null;
-  }
+    : result;
 }
 
-export async function lookupDomain(domain: string): Promise<{ domain: DomainItem; cached: boolean }> {
-  try {
-    const res = await fetch('/api/domains/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain }),
-    });
-    if (!res.ok) throw new Error('Lookup error');
-    return await res.json();
-  } catch (err) {
-    const detail = await fetchDomainDetail(domain);
-    if (detail) {
-      return { domain: detail, cached: true };
-    }
-    throw err;
-  }
+export async function lookupDomain(
+  value: string,
+): Promise<{ domain: DomainItem; cached: boolean }> {
+  const domain = normalizeDomain(value);
+  const existing = await fetchDomainDetail(domain);
+  if (existing) return { domain: existing, cached: true };
+  return { domain: await refreshDomainCache(domain), cached: false };
 }
-
-export async function fetchCompareDomains(domains: string[]): Promise<DomainItem[]> {
+export function normalizeDomain(value: string): string {
+  const url = new URL(value.includes("://") ? value : `https://${value}`);
+  const domain = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (
+    domain.length > 253 ||
+    !domain.includes(".") ||
+    !domain
+      .split(".")
+      .every((p) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(p))
+  )
+    throw new Error("Invalid domain");
+  return domain;
+}
+export async function refreshDomainCache(value: string): Promise<DomainItem> {
+  const domain = normalizeDomain(value);
+  const response = await fetch(
+    `/api/tranco?domain=${encodeURIComponent(domain)}`,
+  );
+  if (!response.ok) {
+    apiStatus = response.status === 429 ? "rate_limited" : "cached_mode";
+    throw new Error(
+      response.status === 429
+        ? "Tranco rate limit; retry shortly."
+        : "Tranco refresh failed. Archived history is still available.",
+    );
+  }
+  const data = await response.json();
+  if (!Array.isArray(data.ranks) || !data.ranks.length)
+    throw new Error("No recent Tranco ranks found.");
+  const recent: RankDataPoint[] = data.ranks
+    .filter(
+      (r: any) =>
+        /^\d{4}-\d{2}-\d{2}$/.test(r.date) &&
+        Number.isInteger(r.rank) &&
+        r.rank > 0,
+    )
+    .map((r: any) => ({
+      date: r.date,
+      rank: r.rank,
+      status: "ranked" as const,
+    }));
+  if (!recent.length) throw new Error("Invalid Tranco response");
+  // Load archive first. A network/cache failure must not erase historical points.
+  const old = await fetchDomainDetail(domain);
+  const m = await fetchManifest();
+  const item = old || rowItem([domain, null, null, null, null, false], m);
+  const fetchedAt = new Date().toISOString();
+  const cache = localCache();
+  const result: DomainItem = {
+    ...applyHistory(item, mergeHistory(item.history, recent)),
+    cachedAt: fetchedAt,
+    trancoLive: true,
+    dataSource: "tranco_api",
+    isCustom: !old,
+  };
+  const { currentRank, rankDate, rank1yChange, peakRank, peakDate, cachedAt } =
+    result;
+  cache[domain] = {
+    ranks: mergeHistory(cache[domain]?.ranks || [], recent),
+    fetchedAt,
+    summary: {
+      currentRank,
+      rankDate,
+      rank1yChange,
+      peakRank,
+      peakDate,
+      cachedAt,
+    },
+  };
   try {
-    const res = await fetch(`/api/compare?domains=${encodeURIComponent(domains.join(','))}`);
-    if (!res.ok) throw new Error('Compare error');
-    return await res.json();
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch {
-    const list: DomainItem[] = [];
-    for (const d of domains) {
-      const item = await fetchDomainDetail(d);
-      if (item) list.push(item);
-    }
-    return list;
+    /* in-memory result remains usable */
   }
+  apiStatus = "online";
+  return result;
 }
-
+export async function fetchCompareDomains(
+  domains: string[],
+): Promise<DomainItem[]> {
+  return (await Promise.all(domains.map(fetchDomainDetail))).filter(
+    (d): d is DomainItem => !!d,
+  );
+}
 export async function fetchCacheStats(): Promise<CacheStats> {
-  try {
-    const res = await fetch('/api/cache/stats');
-    if (!res.ok) throw new Error('Stats error');
-    return await res.json();
-  } catch {
-    const local = getLocalCache();
-    const count = Object.keys(local).length + LIVE_TRANCO_DOMAINS.length;
-    return {
-      totalDomains: 127064,
-      cachedEntries: count,
-      hitCount: count * 3 + 45,
-      missCount: 2,
-      hitRate: 98,
-      lastSync: new Date().toISOString(),
-      trancoApiStatus: 'online',
-    };
-  }
+  const m = await fetchManifest();
+  return {
+    totalDomains: m.totalDomains,
+    cachedEntries: m.domainsWithHistory,
+    hitCount: hits,
+    missCount: misses,
+    hitRate: hits + misses ? Math.round((hits / (hits + misses)) * 100) : 0,
+    lastSync: m.generatedAt,
+    trancoApiStatus: apiStatus,
+  };
 }
-
-export async function refreshDomainCache(domain: string): Promise<DomainItem> {
-  try {
-    const res = await fetch(`/api/cache/refresh/${encodeURIComponent(domain)}`, {
-      method: 'POST',
-    });
-    if (!res.ok) throw new Error('Refresh error');
-    const data = await res.json();
-    return data.domain;
-  } catch {
-    const d = await fetchDomainDetail(domain);
-    if (!d) throw new Error('Domain not found');
-    return d;
-  }
-}
-
 export async function resetCache(): Promise<void> {
-  try {
-    await fetch('/api/cache/clear', { method: 'POST' });
-  } catch {
-    // client clear
-    localStorage.removeItem(CLIENT_CACHE_KEY);
-  }
+  localStorage.removeItem(CACHE_KEY);
+  historyCache.clear();
+  hits = 0;
+  misses = 0;
+  apiStatus = "cached_mode";
 }

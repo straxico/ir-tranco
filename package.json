@@ -9,7 +9,9 @@
     "start": "NODE_ENV=production tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "data:sync": "python3 scripts/sync_data.py",
+    "test": "python3 -m unittest discover -s tests -p \"test_*.py\" && tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

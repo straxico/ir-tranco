@@ -1,0 +1,110 @@
+[
+  {
+    "id": "villa-rentals",
+    "nameFa": "اجاره ویلا و اقامتگاه",
+    "nameEn": "Villa & Lodging Rentals",
+    "icon": "Home",
+    "descriptionFa": "پلتفرم‌های رزرو آنلاین ویلا، اقامتگاه بوم‌گردی و کلبه در شمال و سراسر کشور",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "travel-booking",
+    "nameFa": "رزرو پرواز، قطار و هتل",
+    "nameEn": "Flight & Hotel Booking",
+    "icon": "Plane",
+    "descriptionFa": "سامانه‌های خرید بلیط هواپیما، قطار و رزرو هتل‌های داخلی و خارجی",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "gold-jewelry",
+    "nameFa": "طلا، سکه و فلزات گرانبها",
+    "nameEn": "Gold, Coins & Precious Metals",
+    "icon": "Coins",
+    "descriptionFa": "سامانه‌های قیمت لحظه‌ای، معاملات شمش، طلای آب‌شده و سرمایه‌گذاری طلا",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "crypto-exchanges",
+    "nameFa": "صرافی‌های ارز دیجیتال",
+    "nameEn": "Crypto Exchanges & Web3",
+    "icon": "Bitcoin",
+    "descriptionFa": "صرافی‌های بومی خرید و فروش بیت‌کوین، تتر و رمزارزها با ریال",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "ecommerce-marketplaces",
+    "nameFa": "فروشگاه‌های اینترنتی و ایکامرس",
+    "nameEn": "E-Commerce & Marketplaces",
+    "icon": "ShoppingCart",
+    "descriptionFa": "بزرگترین خرده‌فروشی‌ها، بازارهای آنلاین و سامانه‌های مقایسه قیمت کالا",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "mobility-services",
+    "nameFa": "حمل‌ونقل، تاکسی و پیک آنلاین",
+    "nameEn": "Mobility, Taxi & Logistics",
+    "icon": "Car",
+    "descriptionFa": "سوپراپ‌های درخواست سفر، پیک موتوری، باربری و خدمات آنلاین منزل",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "vod-entertainment",
+    "nameFa": "پخش ویدیو، سینما و VOD",
+    "nameEn": "Streaming & Video On-Demand",
+    "icon": "Tv",
+    "descriptionFa": "پلتفرم‌های تماشای آنلاین فیلم، سریال، انیمیشن و اشتراک‌گذاری ویدیو",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "news-tech-media",
+    "nameFa": "رسانه، ورزش و تکنولوژی",
+    "nameEn": "Tech, News & Sports Media",
+    "icon": "Newspaper",
+    "descriptionFa": "پربازدیدترین رسانه‌های خبری، تحلیلی، فناوری و پایگاه‌های ورزشی",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "messaging-social",
+    "nameFa": "پیام‌رسان‌ها و ارتباطات",
+    "nameEn": "Messaging & Social Platforms",
+    "icon": "MessageSquare",
+    "descriptionFa": "پیام‌رسان‌های بومی و پلتفرم‌های تعاملی و چندرسانه‌ای",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "banking-fintech",
+    "nameFa": "بانکداری، پرداخت و فین‌تک",
+    "nameEn": "Banking, Payments & Fintech",
+    "icon": "Building2",
+    "descriptionFa": "درگاه‌های پرداخت الکترونیک، نئوبانک‌ها و سامانه‌های مقایسه بیمه",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "classifieds-realestate",
+    "nameFa": "نیازمندی‌ها، خودرو و املاک",
+    "nameEn": "Classifieds, Auto & Real Estate",
+    "icon": "Layers",
+    "descriptionFa": "بسترهای خرید و فروش بی‌واسطه کالا، خودرو صفر و کارکرده و مسکن",
+    "domainCount": 0,
+    "topDomain": ""
+  },
+  {
+    "id": "edtech-jobs",
+    "nameFa": "کاریابی، استخدام و آموزش آنلاین",
+    "nameEn": "EdTech & Job Portals",
+    "icon": "GraduationCap",
+    "descriptionFa": "پلتفرم‌های استخدام نیروی کار، دوره‌های ویدئویی و جامعه برنامه‌نویسان",
+    "domainCount": 0,
+    "topDomain": ""
+  }
+]

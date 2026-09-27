@@ -79,7 +79,7 @@ export const CacheManagerModal: React.FC<CacheManagerModalProps> = ({
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
             <span className="text-slate-400 block mb-1">
-              {isPersian ? 'دامنه‌های ثبت‌شده در کش:' : 'Cached Domains:'}
+              {isPersian ? 'دامنه‌های دارای تاریخچه:' : 'Domains with history:'}
             </span>
             <span className="text-xl font-bold font-mono text-cyan-400 tabular-nums">
               {cacheStats?.cachedEntries || 0}
@@ -91,13 +91,13 @@ export const CacheManagerModal: React.FC<CacheManagerModalProps> = ({
               {isPersian ? 'نرخ موفقیت کش (Hit Rate):' : 'Cache Hit Rate:'}
             </span>
             <span className="text-xl font-bold font-mono text-emerald-400 tabular-nums">
-              %{cacheStats?.hitRate || 95}
+              %{cacheStats?.hitRate ?? 0}
             </span>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
             <span className="text-slate-400 block mb-1">
-              {isPersian ? 'درخواست‌های مستقیم از حافظه:' : 'Cache Hits:'}
+              {isPersian ? 'پاسخ از کش در این نشست:' : 'Session cache hits:'}
             </span>
             <span className="text-base font-bold font-mono text-slate-200 tabular-nums">
               {cacheStats?.hitCount || 0}
@@ -127,8 +127,8 @@ export const CacheManagerModal: React.FC<CacheManagerModalProps> = ({
           </div>
           <p>
             {isPersian
-              ? 'اطلاعات رتبه‌بندی ترنکو و تاریخچه‌های ماهانه برای دسترسی آنی (<۵ میلی‌ثانیه) در حافظه نهان سرور و مرورگر نگهداری می‌شوند. با جستجو یا استعلام دامنه جدید، ابتدا کش بررسی می‌شود؛ در صورت عدم وجود، درخواست به صورت خودکار به API ترنکو ارسال و در حافظه کش پایدار ثبت می‌گردد.'
-              : 'Tranco rankings and historical series are stored in high-performance memory for sub-5ms responses. New lookups automatically query the Tranco API and update the persistent cache.'}
+              ? 'تاریخچه آرشیوی از فایل‌های داده بارگذاری می‌شود. تازه‌سازی رتبه، داده‌های اخیر را در مرورگر نگه می‌دارد. پاک‌کردن کش مرورگر، آرشیو اصلی را حذف نمی‌کند. آمار درخواست‌ها فقط مربوط به همین نشست است.'
+              : 'Archived history is loaded from dataset files. Refreshed recent ranks are cached in the browser. Clearing the browser cache preserves the archive. Request counters apply only to this session.'}
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export const CacheManagerModal: React.FC<CacheManagerModalProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors disabled:opacity-50"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>{isPersian ? 'بازنشانی کش سیستم' : 'Reset Cache'}</span>
+            <span>{isPersian ? 'پاک‌کردن کش مرورگر' : 'Clear browser cache'}</span>
           </button>
 
           <button

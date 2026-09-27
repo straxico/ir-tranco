@@ -1,0 +1,79 @@
+name: Update Iranian domains and Tranco data
+
+on:
+  schedule:
+    # 02:17 UTC = 05:47 Tehran. Tranco normally publishes by 00:00 UTC.
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: 'Rebuild historical coverage (downloads old lists for newly added domains)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-tranco-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test the incremental importer
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Download new observations
+        env:
+          REBUILD: ${{ inputs.rebuild || 'false' }}
+        run: |
+          if [ "$REBUILD" = 'true' ]; then
+            python3 scripts/sync_data.py --rebuild
+          else
+            python3 scripts/sync_data.py
+          fi
+
+      - name: Validate the published dataset
+        run: python3 scripts/validate_data.py
+
+      - name: Commit and push changed data
+        run: |
+          git add -A -- public/data
+          if git diff --cached --quiet; then
+            echo 'No data changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'data: update Iranian domains and Tranco ranks'
+          git pull --rebase origin "$DEFAULT_BRANCH"
+          git push origin "HEAD:$DEFAULT_BRANCH"
+
+      - name: Write run summary
+        if: success()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          m = json.loads(Path('public/data/manifest.json').read_text())
+          print(f"Latest ranking: **{m['latestDate']}**")
+          print(f"\nDomains: **{m['totalDomains']:,}**; ranked: **{m['rankedDomains']:,}**")
+          print(f"\nSource release: `{m['source']['release']}`")
+          PY
